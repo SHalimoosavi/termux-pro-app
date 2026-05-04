@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- Modules Collection ---
+    match /modules/{moduleId} {
+      function isValidModule(data) {
+        return data.keys().hasAll(['name', 'description', 'category', 'authorId', 'authorName', 'downloadUrl', 'createdAt', 'updatedAt', 'downloadCount'])
+          && data.keys().size() == 9
+          && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+          && data.description is string && data.description.size() <= 1000
+          && data.category in ['development', 'web', 'automation', 'cybersecurity', 'ai']
+          && (data.authorId == request.auth.uid || data.authorId == 'system')
+          && data.authorName is string
+          && data.downloadUrl is string && data.downloadUrl.matches('^https?://.*')
+          && data.createdAt == request.time
+          && data.updatedAt == request.time
+          && data.downloadCount is number;
+      }
+
+      allow read: if true;
+
+      allow create: if isEmailVerified() 
+        && isValidId(moduleId)
+        && isValidModule(incoming());
+
+      allow update: if isEmailVerified()
+        && (
+          // Action: Edit Metadata (Author only)
+          (isOwner(existing().authorId) 
+            && incoming().authorId == existing().authorId
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == request.time
+            && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'category', 'downloadUrl', 'updatedAt']))
+          ) ||
+          // Action: Increment Download (Anyone)
+          (incoming().diff(existing()).affectedKeys().hasOnly(['downloadCount'])
+           && incoming().downloadCount == existing().downloadCount + 1)
+        );
+
+      allow delete: if isEmailVerified() && isOwner(existing().authorId);
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['email', 'createdAt'])
+          && data.email == request.auth.token.email
+          && data.createdAt == request.time;
+      }
+
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) 
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasAny(['displayName', 'photoURL', 'installedModules']);
+
+      // --- Scripts Subcollection ---
+      match /scripts/{scriptId} {
+        function isValidScript(data) {
+          return data.keys().hasAll(['name', 'content', 'language', 'ownerId', 'createdAt', 'updatedAt'])
+            && data.keys().size() == 6
+            && data.name is string && data.name.size() > 0 && data.name.size() <= 256
+            && data.content is string && data.content.size() <= 100000
+            && data.language in ['javascript', 'python']
+            && data.ownerId == request.auth.uid
+            && data.createdAt == request.time
+            && data.updatedAt == request.time;
+        }
+
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(scriptId) && isValidScript(incoming());
+        allow update: if isOwner(userId) 
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'content', 'language', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

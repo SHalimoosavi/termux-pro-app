@@ -1,0 +1,65 @@
+{
+  "entities": {
+    "Module": {
+      "title": "Module",
+      "description": "A Termux script module that can be downloaded and installed.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Display name of the module" },
+        "description": { "type": "string", "description": "Short summary of what the module does" },
+        "category": { "type": "string", "enum": ["development", "web", "automation", "cybersecurity", "ai"], "description": "Module category" },
+        "authorId": { "type": "string", "description": "UID of the user who uploaded the module" },
+        "authorName": { "type": "string", "description": "Display name of the author" },
+        "downloadUrl": { "type": "string", "description": "Direct link to the ZIP file" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the module was published" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" },
+        "downloadCount": { "type": "number", "description": "Total downloads" }
+      },
+      "required": ["name", "description", "category", "authorId", "downloadUrl", "createdAt", "updatedAt"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User account information and progress data.",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" },
+        "installedModules": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Script": {
+      "title": "Script",
+      "description": "User-created scripts and code files.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Filename" },
+        "content": { "type": "string", "description": "Source code" },
+        "language": { "type": "string", "enum": ["javascript", "python"] },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "content", "language", "ownerId", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/modules/{moduleId}": {
+      "schema": "Module",
+      "description": "Public repository of available modules."
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private user profiles and progress tracking."
+    },
+    "/users/{userId}/scripts/{scriptId}": {
+      "schema": "Script",
+      "description": "User's private code files."
+    }
+  }
+}

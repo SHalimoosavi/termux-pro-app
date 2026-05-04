@@ -1,0 +1,6 @@
+{
+  "name": "Termux Pro Platform",
+  "description": "A high-performance technical ecosystem for Android development, cybersecurity, and automation inside Termux. Features a centralized module repository for scripts and tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
